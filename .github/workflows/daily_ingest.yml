@@ -28,9 +28,9 @@ jobs:
           python << 'EOF'
           import json
           import os
-          key_data = '''${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}'''
+          key_data = ${{ toJSON(secrets.GCP_SERVICE_ACCOUNT_KEY) }}
           with open('key.json', 'w') as f:
-              json.dump(json.loads(key_data), f)
+              json.dump(key_data, f)
           print('GCP key written and validated')
           EOF
 
