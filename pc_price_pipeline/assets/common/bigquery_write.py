@@ -15,7 +15,13 @@ def _load_credentials():
     """Load service-account creds when available to avoid browser auth in CI."""
     key_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
     if key_path and os.path.exists(key_path):
-        return service_account.Credentials.from_service_account_file(key_path)
+        try:
+            return service_account.Credentials.from_service_account_file(key_path)
+        except Exception as e:
+            raise ValueError(
+                f"Failed to load service account from {key_path}: {e}. "
+                f"Ensure GCP_SERVICE_ACCOUNT_KEY secret is valid JSON."
+            ) from e
 
     credentials, _ = google.auth.default()
     return credentials

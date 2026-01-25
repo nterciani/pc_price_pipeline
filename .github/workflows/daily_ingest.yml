@@ -25,8 +25,14 @@ jobs:
 
       - name: Authenticate to GCP
         run: |
-          echo "${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}" > key.json
-          python -c "import google.auth, os; print('GCP auth OK with', os.environ.get('GOOGLE_APPLICATION_CREDENTIALS'))"
+          python << 'EOF'
+          import json
+          import os
+          key_data = '''${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}'''
+          with open('key.json', 'w') as f:
+              json.dump(json.loads(key_data), f)
+          print('GCP key written and validated')
+          EOF
 
       - name: Run Dagster ETL
         run: |
