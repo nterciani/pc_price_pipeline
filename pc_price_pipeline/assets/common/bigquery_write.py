@@ -3,7 +3,7 @@ from pandas_gbq import to_gbq
 
 PROJECT_ID = "pc-price-pipeline"
 
-ENV = "dev"  # later: prod
+ENV = "prod"  # dev or prod
 WRITE_MODE = "replace" if ENV == "dev" else "append"
 
 def write_to_bq(df: pd.DataFrame, table: str, schema: list[dict]):
