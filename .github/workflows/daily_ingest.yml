@@ -31,5 +31,5 @@ jobs:
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
         run: |
           dagster job execute \
-          -f pc_price_pipeline/definitions.py \
-          -j daily_etl_job
+            -m pc_price_pipeline.definitions \
+            -j daily_etl_job
