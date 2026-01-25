@@ -24,15 +24,7 @@ jobs:
           pip install -e .
 
       - name: Authenticate to GCP
-        run: |
-          python << 'EOF'
-          import json
-          import os
-          key_data = ${{ toJSON(secrets.GCP_SERVICE_ACCOUNT_KEY) }}
-          with open('key.json', 'w') as f:
-              json.dump(key_data, f)
-          print('GCP key written and validated')
-          EOF
+        run: echo '${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}' > key.json
 
       - name: Run Dagster ETL
         run: |
