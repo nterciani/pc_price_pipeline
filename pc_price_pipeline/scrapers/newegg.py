@@ -9,12 +9,27 @@ def get_newegg_pages(url: str) -> int:
     """Returns the number of pages for a Newegg Pc part."""
     soup = BeautifulSoup(requests.get(url).text, "html.parser")
 
-    pages_tag = soup.find(name="span", class_="list-tool-pagination-text").find(name="strong")
-    last_page_number = int(pages_tag.text.split('/')[-1])
+    pagination_span = soup.find(name="span", class_="list-tool-pagination-text")
 
+    if not pagination_span:
+        items = soup.select(".item-cell")
+        if items:
+            return 1 # single page of results
+        else:
+            # no items and no pagination
+            raise ValueError(
+                f"No pagination or items found at {url}. "
+                "Possible causes: bot detection, invalid URL, or site structure changed."
+            )
+
+    pages_tag = pagination_span.find(name="strong")
+    if not pages_tag:
+        raise ValueError(f"Pagination element found but missing page count at {url}")
+    
+    last_page_number = int(pages_tag.text.split('/')[-1])
     return last_page_number
 
-def parse_price(element: [PageElement | Tag | NavigableString]) -> str:
+def parse_price(element: PageElement | Tag | NavigableString) -> str:
     try:  # make sure price exists
         price_dollars = element.find(name="li", class_="price-current").find(name="strong").text.replace(",", "")
         price_cents = element.find(name="li", class_="price-current").find(name="sup").text
