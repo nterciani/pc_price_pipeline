@@ -1,5 +1,25 @@
 import pandas as pd
 from pc_price_pipeline.assets.cpu.enriched import enriched_cpus
+from pc_price_pipeline.assets.common.schemas import ENRICHED_CPUS_SCHEMA as schema
+
+
+def _dummy_value_for_type(field_type: str):
+    if field_type == "FLOAT":
+        return 0.0
+    if field_type == "TIMESTAMP":
+        return "2026-01-01T00:00:00"
+    if field_type == "BOOL":
+        return False
+    return "DUMMY"
+
+
+def _make_rows_with_schema_defaults(raw_names):
+    defaults = {
+        col["name"]: _dummy_value_for_type(col["type"])
+        for col in schema
+    }
+    return [{**defaults, "raw_name": value} for value in raw_names]
+
 
 def test_enriched_cpus_basic_extraction():
     df = pd.DataFrame({
@@ -35,3 +55,19 @@ def test_enriched_cpus_basic_extraction():
     assert row3["socket"] == "LGA 1700"
     assert row3["product_family"] == "INTEL CORE I9 14900KF"
     assert isinstance(row3["product_id"], str)
+
+
+def test_enriched_cpus_drops_null_product_family():
+    raw_names = [
+        'AMD Ryzen 7 5800X',
+        '',
+        None,
+        12345,  # clearly wrong type
+        'HPE AMD EPYC 9004 (4th Gen) 9224 Tetracosa-core (24 Core) 2.50 GHz Processor Upgrade - 64 MB L3 Cache',
+    ]
+    sample = pd.DataFrame(_make_rows_with_schema_defaults(raw_names))
+    enriched = enriched_cpus(sample)
+
+    # Product family should not be null or empty
+    assert enriched['product_family'].isnull().sum() == 0
+    assert (enriched['product_family'].str.strip() == '').sum() == 0

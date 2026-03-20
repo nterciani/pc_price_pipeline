@@ -12,6 +12,9 @@ def enriched_cpus(cleaned_cpus: pd.DataFrame) -> pd.DataFrame:
     df = cleaned_cpus.copy()
 
     df["product_family"] = df["raw_name"].str.extract(CPU_NAME_PATTERN).iloc[:, 0]
+    df = df.dropna(subset=["product_family"])
+    df = df[df["product_family"].str.strip() != ""]
+
     df["brand"] = df["raw_name"].str.extract(CPU_BRAND_PATTERN).iloc[:, 0]
     df["socket"] = df["raw_name"].str.extract(CPU_SOCKET_PATTERN)
     df["product_id"] = df["product_family"].apply(generate_product_id)
