@@ -31,7 +31,7 @@ def test_enriched_gpus_basic_extraction():
     assert row2["brand"] == "ASUS"
     assert row2["chipset"] == "GEFORCE RTX 3080"
     assert row2["memory"] == "10GB"
-    assert row2["memory_type"] is None
+    assert pd.isna(row2["memeory_type"]) 
     assert row2["product_family"] == "ASUS GEFORCE RTX 3080 10GB"
     assert isinstance(row2["product_id"], str)
 
