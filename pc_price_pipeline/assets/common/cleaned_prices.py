@@ -15,7 +15,7 @@ def cleaned_prices_df(df: pd.DataFrame, extra_schemas: list=None) -> pd.DataFram
 
     df = df[~df['source_url'].str.contains('ComboDeal', na=False)]
 
-    df["scrape_window"] = df["scraped_at"].dt.floor("1H")
+    df["scrape_window"] = df["scraped_at"].dt.floor("1h")
 
     df = df.drop_duplicates(
         subset=["raw_name", "store", "source_url", "scrape_window"]
