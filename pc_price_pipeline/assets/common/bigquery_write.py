@@ -17,7 +17,7 @@ def write_to_bq(df: pd.DataFrame, table: str, schema: list[dict]):
 
     if WRITE_MODE == "append":
         # Query existing data to check for duplicates
-        df["scrape_window"] = df["scraped_at"].dt.floor("1H")
+        df["scrape_window"] = df["scraped_at"].dt.floor("1h")
         
         try:
             existing = read_gbq(
