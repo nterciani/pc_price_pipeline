@@ -52,3 +52,7 @@ tmp/
 
 # Notebook checkpoints
 .ipynb_checkpoints/
+
+# Personal
+Roadmap.md
+scripts/
