@@ -1,5 +1,7 @@
 import pandas as pd
 from pc_price_pipeline.assets.common.utils import *
+from pc_price_pipeline.assets.common.star_schemas import *
+from pc_price_pipeline.assets.common.embedding_and_vectors import generate_product_embeddings, match_intermediate_to_existing_products
 
 
 class Transformer:
@@ -16,18 +18,16 @@ class Transformer:
         """Must be implemented per class to extract the product's specs.""" 
         raise NotImplementedError("Subclasses must implement get_specs()")
 
-    def raw_to_intermediate(self, df_raw: pd.DataFrame) -> pd.DataFrame:
+    def clean_to_intermediate(self, df_raw: pd.DataFrame) -> pd.DataFrame:
         """
-        Transforms raw data in the form of the raw prices schema into a 
+        Transforms clean data in the form of the raw prices schema into a 
         dataframe that can be used to populate a star schema, including a 
         fact table for prices, a dimension table for products and a dimension 
         table for specs.
         """
         df_inter = df_raw.copy()
         
-        # TODO: raw_price should not be simply renamed after the migration is fully made, but for now
-        #       it can be renamed since the "raw_price" has been cleaned.
-        df_inter = df_inter.rename(columns={"raw_price": "price", "category": "product_category"})
+        df_inter = df_inter.rename(columns={"category": "product_category"})
 
         df_inter["price_date"] = df_inter["scraped_at"]
         df_inter["retailer_key"] = df_inter["store"].apply(generate_retailer_id)
@@ -42,3 +42,23 @@ class Transformer:
         df_inter["product_key"] = df_inter[key_columns].drop("needs_review", axis=1).apply(generate_product_key, axis=1)
 
         return df_inter
+
+    def intermediate_to_star(self, df_inter: pd.DataFrame) -> tuple[pd.DataFrame]:
+        """
+        Transforms the intermediate dataframe into a tuple of dataframes that can be used to populate a star schema.
+        Returns a tuple of dataframes corresponding to the dim_products, dim_*_specs, 
+        fact_prices, and fact_vector_search tables in the star schema.
+        """
+        # embedding
+        df_intermediate = generate_product_embeddings(df_intermediate)
+
+        # vector search and match to existing products
+        df_intermediate = match_intermediate_to_existing_products(df_intermediate)
+
+        # Split the intermediate dataframe into dim_products, dim_specs, and fact_prices
+        dim_products = df_intermediate[[spec["name"] for spec in DIM_PRODUCTS_SCHEMA]].groupby("product_key").first().reset_index()
+        dim_specs = df_intermediate[[spec["name"] for spec in self.specs_schema]].groupby("product_key").first().reset_index()
+        fact_prices = df_intermediate[[spec["name"] for spec in FACT_PRICES_SCHEMA]].drop_duplicates(subset=["price_date", "product_key", "retailer_key", "source_url"])
+        fact_vector_search = df_intermediate[[spec["name"] for spec in FACT_VECTOR_SEARCH_SCHEMA]].drop_duplicates(subset=["raw_name", "product_key", "match_confidence", "match_method", "is_approved", "scraped_at"])
+
+        return dim_products, dim_specs, fact_prices, fact_vector_search

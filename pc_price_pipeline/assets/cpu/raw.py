@@ -1,5 +1,5 @@
-from dagster import asset
 import pandas as pd
+from dagster import asset
 from pc_price_pipeline.scrapers.newegg import scrape_newegg_category
 
 NEWEGG_CPUS = "https://www.newegg.ca/p/pl?N=100007670%204814%208000&ComboBundle=true"
