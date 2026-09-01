@@ -51,8 +51,23 @@ def merge_staging_to_star_table(table: str, schema: list[dict]):
     update_clause = ", ".join(f"target.{col} = source.{col}" for col in cols)
     insert_cols = ", ".join(cols)
     insert_vals = ", ".join(f"source.{col}" for col in cols)
-    on_clause = " AND ".join(f"target.{col} = source.{col}" for col in cols if col in ["product_key", "retailer_key", "price_date", "source_url"])
     order_clause = " + ".join(f"(CASE WHEN {col} IS NOT NULL THEN 1 ELSE 0 END)" for col in cols)
+
+    if "fact_vector_search" in table:
+        on_clause = """
+            target.product_key = source.product_key
+            AND target.raw_name = source.raw_name
+            AND target.scraped_at = source.scraped_at
+        """
+    elif "fact_prices" in table:
+        on_clause = """
+            target.product_key = source.product_key
+            AND target.retailer_key = source.retailer_key
+            AND target.price_date = source.price_date
+            AND target.source_url = source.source_url
+        """
+    else:
+        on_clause = "target.product_key = source.product_key"
 
     dim_query = f"""
         MERGE `{table}` AS Target
@@ -86,7 +101,28 @@ def merge_staging_to_star_table(table: str, schema: list[dict]):
         WHEN NOT MATCHED THEN INSERT ({insert_cols}) VALUES ({insert_vals});
     """
 
-    merge_query = fact_query if "fact_prices" in table else dim_query
+    vector_query = f"""
+        MERGE `{table}` AS Target
+        USING (
+            SELECT * EXCEPT(dedup_rank) FROM (
+                SELECT *, ROW_NUMBER() OVER (
+                        PARTITION BY product_key, raw_name, scraped_at
+                        ORDER BY ({order_clause}) DESC
+                ) AS dedup_rank
+                FROM `pc_part_prices_star.staging`
+            ) WHERE dedup_rank = 1
+        ) AS Source
+        ON {on_clause}
+        WHEN MATCHED THEN UPDATE SET {update_clause}
+        WHEN NOT MATCHED THEN INSERT ({insert_cols}) VALUES ({insert_vals});
+    """
+
+    if "fact_prices" in table:
+        merge_query = fact_query
+    elif "fact_vector_search" in table:
+        merge_query = vector_query
+    else:
+        merge_query = dim_query
 
     client.query(merge_query).result()
     client.delete_table("pc_part_prices_star.staging", not_found_ok=True)
@@ -110,7 +146,7 @@ def write_raw_to_bq(df: pd.DataFrame, table: str, schema: list[dict]):
     )
 
 
-def write_all_to_bq(transformed_parts: tuple[pd.DataFrame], category: str, part_schema: list[dict]):
+def write_all_to_bq(transformed_parts: tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame], category: str, part_schema: list[dict]):
     dim_products, dim_specs, fact_prices, fact_vector_search = transformed_parts
 
     write_star_to_bq(dim_products, "pc_part_prices_star.dim_products", DIM_PRODUCTS_SCHEMA)

@@ -5,8 +5,8 @@ from pc_price_pipeline.assets.common.embedding_and_vectors import generate_produ
 
 
 class Transformer:
-    def __init__(self, df_raw: pd.DataFrame, brand_pattern: str, specs_schema: list[dict]):
-        self.df_raw = df_raw
+    def __init__(self, df_clean: pd.DataFrame, brand_pattern: str, specs_schema: list[dict]):
+        self.df_clean = df_clean
         self.brand_pattern = brand_pattern
         self.specs_schema = specs_schema
 
@@ -18,14 +18,14 @@ class Transformer:
         """Must be implemented per class to extract the product's specs.""" 
         raise NotImplementedError("Subclasses must implement get_specs()")
 
-    def clean_to_intermediate(self, df_raw: pd.DataFrame) -> pd.DataFrame:
+    def clean_to_intermediate(self, df_clean: pd.DataFrame) -> pd.DataFrame:
         """
         Transforms clean data in the form of the raw prices schema into a 
         dataframe that can be used to populate a star schema, including a 
         fact table for prices, a dimension table for products and a dimension 
         table for specs.
         """
-        df_inter = df_raw.copy()
+        df_inter = df_clean.copy()
         
         df_inter = df_inter.rename(columns={"category": "product_category"})
 
@@ -43,7 +43,7 @@ class Transformer:
 
         return df_inter
 
-    def intermediate_to_star(self, df_inter: pd.DataFrame) -> tuple[pd.DataFrame]:
+    def intermediate_to_star(self, df_intermediate: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
         """
         Transforms the intermediate dataframe into a tuple of dataframes that can be used to populate a star schema.
         Returns a tuple of dataframes corresponding to the dim_products, dim_*_specs, 
@@ -59,6 +59,6 @@ class Transformer:
         dim_products = df_intermediate[[spec["name"] for spec in DIM_PRODUCTS_SCHEMA]].groupby("product_key").first().reset_index()
         dim_specs = df_intermediate[[spec["name"] for spec in self.specs_schema]].groupby("product_key").first().reset_index()
         fact_prices = df_intermediate[[spec["name"] for spec in FACT_PRICES_SCHEMA]].drop_duplicates(subset=["price_date", "product_key", "retailer_key", "source_url"])
-        fact_vector_search = df_intermediate[[spec["name"] for spec in FACT_VECTOR_SEARCH_SCHEMA]].drop_duplicates(subset=["raw_name", "product_key", "match_confidence", "match_method", "is_approved", "scraped_at"])
+        fact_vector_search = df_intermediate[[spec["name"] for spec in FACT_VECTOR_SEARCH_SCHEMA]].drop_duplicates(subset=["raw_name", "match_confidence", "match_method", "is_approved", "scraped_at"])
 
         return dim_products, dim_specs, fact_prices, fact_vector_search

@@ -4,6 +4,9 @@ from google.api_core.exceptions import NotFound
 from sentence_transformers import SentenceTransformer
 from pc_price_pipeline.assets.common.bigquery_helpers import write_df_to_staging_bq, read_from_gbq_data_set
 
+EMBEDDING_MODEL_NAME = "jinaai/jina-embeddings-v3-hf"
+VECTOR_SEARCH_CONFIDENCE_THRESHOLD = 0.01
+
 TEMP_VECTOR_SCHEMA = [
     {"name": "match_id", "type": "STRING"},
     {"name": "product_name", "type": "STRING"},
@@ -17,15 +20,20 @@ def generate_product_embeddings(df: pd.DataFrame) -> pd.DataFrame:
     them into a product_embedding column.
     """
     model = SentenceTransformer(
-        "jinaai/jina-embeddings-v3-hf", 
+        EMBEDDING_MODEL_NAME,
         trust_remote_code=True
     )
 
-    df["product_embedding"] = df["product_name"].apply(lambda x: model.encode(x,
-                                                                              task="text-matching",
-                                                                              prompt_name="text-matching",
-                                                                              normalize_embeddings=True
-                                                                              ).tolist() if pd.notnull(x) else None)
+    raw_names = df["product_name"].fillna("").tolist()
+
+    embeddings_matrix = model.encode(
+        raw_names,
+        task="text-matching",
+        prompt_name="text-matching",
+        normalize_embeddings=True
+    )
+
+    df["product_embedding"] = [vec.tolist() for vec in embeddings_matrix]
 
     return df
 
@@ -35,9 +43,9 @@ def perform_vector_search(df_intermediate: pd.DataFrame) -> pd.DataFrame | None:
     with the most similar product_key along with additional match_confidence, and match_method for each product 
     in the input dataframe. df_intermediate must have match_id and product_embedding columns.
     """
-    bq_confidence_threshold = 0.95
-
     client = bigquery.Client()
+
+    client.delete_table("pc_part_prices_star.staging", not_found_ok=True)
 
     write_df_to_staging_bq(df_intermediate[["match_id", "product_name", "scraped_at", "product_embedding"]], TEMP_VECTOR_SCHEMA)
 
@@ -57,9 +65,9 @@ def perform_vector_search(df_intermediate: pd.DataFrame) -> pd.DataFrame | None:
             'product_embedding',
             TABLE `pc_part_prices_star.staging`,
             'product_embedding',
-            top_k => 1
+            top_k => 1,
+            distance_type => 'COSINE'
         )
-        
     """
 
     query_job = client.query(query)
@@ -68,9 +76,9 @@ def perform_vector_search(df_intermediate: pd.DataFrame) -> pd.DataFrame | None:
     client.delete_table("pc_part_prices_star.staging", not_found_ok=True)
 
     if new_df.empty:
-        return 
+        return None
 
-    clean_df = new_df[new_df['match_confidence'] >= bq_confidence_threshold]
+    clean_df = new_df[new_df["match_confidence"] <= VECTOR_SEARCH_CONFIDENCE_THRESHOLD]
 
     return clean_df
 
@@ -80,18 +88,14 @@ def match_intermediate_to_existing_products(df_intermediate: pd.DataFrame) -> pd
     it checks for exact product_key matches int the dim_products table. If no exact match is found, it performs
     a vector search to find the most similar product in the dim_products table based on the product_name.
     """
-    vector_search_columns = ["match_confidence", "match_method", "is_approved"]
+    df_intermediate = df_intermediate.copy()
 
-    product_keys = df_intermediate["product_key"].tolist()
-    keys_string = ", ".join(f"'{key}'" for key in product_keys)
+    df_intermediate["source_product_key"] = df_intermediate["product_key"]
 
-    query = f"""
-        SELECT product_key
-        FROM `pc_part_prices_star.dim_products`
-        WHERE product_key IN ({keys_string})
-    """
-
-    df_intermediate[vector_search_columns] = None
+    df_intermediate["candidate_product_key"] = None
+    df_intermediate["match_confidence"] = None
+    df_intermediate["match_method"] = None
+    df_intermediate["is_approved"] = True
 
     # check if dim_products table exists
     try:
@@ -99,27 +103,38 @@ def match_intermediate_to_existing_products(df_intermediate: pd.DataFrame) -> pd
     except NotFound:
         return df_intermediate
 
-    df_existing_products = df_intermediate[df_intermediate["product_key"].isin(read_from_gbq_data_set(query)["product_key"])]
-    df_non_existing_products = df_intermediate[~df_intermediate["product_key"].isin(df_existing_products["product_key"])].copy()
+    existing_keys = read_from_gbq_data_set(
+        "SELECT product_key FROM `pc_part_prices_star.dim_products`"
+    )["product_key"].tolist()
 
-    if not df_non_existing_products.empty:
-        df_non_existing_products["match_id"] = df_non_existing_products.index.astype(str)
-        df_vector_search_results = perform_vector_search(df_non_existing_products)
+    df_existing = df_intermediate[df_intermediate["product_key"].isin(existing_keys)].copy()
+    df_missing = df_intermediate[~df_intermediate["product_key"].isin(existing_keys)].copy()
 
-        if df_vector_search_results is not None and not df_vector_search_results.empty:
-            # Set match_id as index on the search results for clean mapping
-            v_results_indexed = df_vector_search_results.set_index("match_id")
+    if df_missing.empty:
+        return df_existing
 
-            # Only extract the rows that actually found a vector match
-            matched_ids = df_non_existing_products["match_id"].isin(v_results_indexed.index)
+    df_missing["match_id"] = df_missing.index.astype(str)
+    vector_results = perform_vector_search(df_missing)
 
-            if matched_ids.any():
-                # Target only matched rows and map values cleanly by index alignment
-                target_indices = df_non_existing_products[matched_ids].index
-                target_match_ids = df_non_existing_products.loc[target_indices, "match_id"]
+    if vector_results is None or vector_results.empty:
+        return pd.concat([df_existing, df_missing], ignore_index=True)
 
-                # Assign values only to the subset that matched
-                cols_to_update = vector_search_columns + ["product_key"]
-                df_non_existing_products.loc[target_indices, cols_to_update] = v_results_indexed.loc[target_match_ids, cols_to_update].values
+    vector_results.set_index("match_id", inplace=True)
 
-    return pd.concat([df_existing_products, df_non_existing_products], ignore_index=True)
+    for idx, row in df_missing.iterrows():
+        match_id = str(idx)
+
+        if match_id not in vector_results.index:
+            continue
+
+        result = vector_results.loc[match_id]
+        distance = float(result["match_confidence"])
+
+        if distance <= VECTOR_SEARCH_CONFIDENCE_THRESHOLD:
+            df_missing.at[idx, "candidate_product_key"] = result["product_key"]
+            df_missing.at[idx, "match_confidence"] = distance
+            df_missing.at[idx, "match_method"] = result["match_method"]
+            df_missing.at[idx, "is_approved"] = False
+            df_missing.at[idx, "product_key"] = result["product_key"]
+
+    return pd.concat([df_existing, df_missing], ignore_index=True)

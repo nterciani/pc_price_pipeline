@@ -1,7 +1,7 @@
 import hashlib
 import pandas as pd
 
-CPU_NAME_PATTERN = r"(?i)^(AMD Ryzen \d \w*|Intel Core Ultra \d+ \w*|Intel Core i\d+-\d+\w*|AMD Ryzen Threadripper ?(PRO)? \d*\w*|Intel Pentium \w*)"
+CPU_NAME_PATTERN = r"(?i)^(AMD Ryzen \d \w*|Intel Core Ultra \d+ \w*(?: Plus)?|Intel Core i\d+-\d+\w*|AMD Ryzen Threadripper ?(PRO)? \d*\w*|Intel Pentium \w*)"
 CPU_BRAND_PATTERN = r"(?i)^(AMD|Intel)"
 CPU_SOCKET_PATTERN = r"(?i)((?:AM\d)|(?:LGA \d+)|(?:sTR\w?\d)|(?:SP\w?\d)|(?:sWRX8))"
 CPU_CORES_PATTERN = r"(?i)(\d+(?= ?-?(?:Cores|Core)))"
