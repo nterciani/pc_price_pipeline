@@ -22,3 +22,8 @@ def store_memory(transformed_memory: tuple[pd.DataFrame, pd.DataFrame, pd.DataFr
 @asset(group_name="motherboards")
 def store_motherboards(transformed_motherboards: tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]) -> None:
     write_all_to_bq(transformed_motherboards, "motherboard", DIM_MOTHERBOARD_SPECS)
+
+
+@asset(group_name="psus")
+def store_psus(transformed_psus: tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]) -> None:
+    write_all_to_bq(transformed_psus, "psu", DIM_PSU_SPECS)
