@@ -1,6 +1,8 @@
-from dagster import asset
 import pandas as pd
+from dagster import asset
 from pc_price_pipeline.scrapers.newegg import scrape_newegg_category
+from pc_price_pipeline.assets.common.star_schemas import RAW_PRICES_SCHEMA
+from pc_price_pipeline.assets.common.bigquery_helpers import write_raw_to_bq
 
 NEWEGG_STORAGE_INTERNAL_SSD = "https://www.newegg.ca/p/pl?N=100011700%204814%208000"
 NEWEGG_STORAGE_INTERNAL_HDD = "https://www.newegg.ca/p/pl?N=100167537%204814%208000"
@@ -14,17 +16,12 @@ def raw_storage() -> pd.DataFrame:
     rows = []
 
     row_ssd = scrape_newegg_category("STORAGE", NEWEGG_STORAGE_INTERNAL_SSD)
-    for d in row_ssd:
-        d["storage_type"] = "SSD"
-
-    rows += row_ssd
-
     row_hdd = scrape_newegg_category("STORAGE", NEWEGG_STORAGE_INTERNAL_HDD)
-    for d in row_hdd:
-        d["storage_type"] = "HDD"
 
-    rows += row_hdd
+    rows = row_ssd + row_hdd
 
-    df = pd.DataFrame(rows)
+    raw_df = pd.DataFrame(rows)
 
-    return df
+    write_raw_to_bq(raw_df, "pc_part_prices_star.raw_prices", RAW_PRICES_SCHEMA)
+
+    return raw_df
