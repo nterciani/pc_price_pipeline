@@ -20,6 +20,7 @@ class GpuTransformer(Transformer):
             df["chipset"].fillna("") + " " +
             df["memory"].fillna("")
         ).str.replace(r"\s+", " ", regex=True).str.strip()
+        df["product_name"] += df["overclocked"].fillna(False).map({True: " OC", False: ""})
 
         return df
 

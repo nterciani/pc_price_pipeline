@@ -37,6 +37,9 @@ class Transformer:
         df_inter = self.get_specs(df_inter)
         df_inter = self.get_name(df_inter)
 
+        # products with no names arent useful
+        df_inter = df_inter[df_inter["product_name"].notnull()]
+
         # make product key from specs
         key_columns = [col["name"] for col in self.specs_schema if col["name"] in df_inter.columns]
         df_inter["product_key"] = df_inter[key_columns].drop("needs_review", axis=1).apply(generate_product_key, axis=1)
