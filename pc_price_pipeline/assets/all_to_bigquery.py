@@ -17,3 +17,8 @@ def store_gpus(transformed_gpus: tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame,
 @asset(group_name="memory")
 def store_memory(transformed_memory: tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]) -> None:
     write_all_to_bq(transformed_memory, "memory", DIM_MEMORY_SPECS)
+
+
+@asset(group_name="motherboards")
+def store_motherboards(transformed_motherboards: tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]) -> None:
+    write_all_to_bq(transformed_motherboards, "motherboard", DIM_MOTHERBOARD_SPECS)

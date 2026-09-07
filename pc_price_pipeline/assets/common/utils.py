@@ -20,13 +20,10 @@ GPU_MEMORY_PATTERN = r"(?i)((?!0)\d+\s?(?:GB|MB)|(?!0)\d+G)"
 GPU_MEMORY_TYPE_PATTERN = r"(?i)(G?DDR\dX?)"
 GPU_OVERCLOCKED_PATTERN = r"(?i)(?<!Non-)(?:Overclocked| OC|OC Edition|OC Edition|OC Version|Overclocked Edition|Overclocked Version)"
 
-# TODO: MOBO SHOULD NOT BE USED ANYMORE
-MOBO_BRAND_PATTERN = r"(?i)^(?:Refurbished\s+|Open Box\s+)?(\w+)"
-MOBO_SOCKET_PATTERN = r"(?i)((?:AM\d)|(?:LGA\s?\d+)|(?:sTR\w?\d)|(?:SP\w?\d)|(?:sWRX8))"
-MOBO_FORM_FACTOR_PATTERN = r"(?i)(Micro-ATX|mATX|Mini-ITX|ITX|ATX)"
-MOBO_CHIPSET_PATTERN = r"(?i)([A-Z]\d{3}E?A?)"
-MOBO_MEMORY_TYPE_PATTERN = r"(?i)(DDR\dX?)"
-
+MOTHERBOARD_BRAND_PATTERN = r"(?i)^(?:Refurbished\s+|Open Box\s+)?(\w+)"
+MOTHERBOARD_SOCKET_PATTERN = r"(?i)((?:AM\d)|(?:LGA\s?\d+)|(?:sTR\w?\d)|(?:SP\w?\d)|(?:sWRX8))"
+MOTHERBOARD_CHIPSET_PATTERN = r"(?i)([A-Z]\d{3}E?A?)"
+MOTHERBOARD_MEMORY_TYPE_PATTERN = r"(?i)(DDR\dX?)"
 MOTHERBOARD_MODEL_LINE_PATTERN = r"(?i)^(?:Refurbished\s+|Open Box\s+|Memory module\s+)?(?:\w+)(?<=)\s+(.*?)\s+(?=\b(?:AM4|AM5|AMD|LGA ?\d+|Intel|Micro\s?-?ATX|mATX|Mini-ITX|ITX|ATX)\b)"
 MOTHERBOARD_FORM_FACTOR_PATTERN = r"(?i)(Micro\s?-?ATX|mATX|Mini-ITX|ITX|ATX)"
 

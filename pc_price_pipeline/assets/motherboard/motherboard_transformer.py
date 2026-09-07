@@ -1,7 +1,7 @@
 import pandas as pd
 from pc_price_pipeline.assets.common.utils import *
 from pc_price_pipeline.assets.common.transformer import Transformer
-from pc_price_pipeline.assets.mobo.normalize import normalize_motherboard_specs
+from pc_price_pipeline.assets.motherboard.normalize import normalize_motherboard_specs
 
 
 class MotherboardTransformer(Transformer):
@@ -28,10 +28,10 @@ class MotherboardTransformer(Transformer):
         """Extracts the product's specs from the current dataframe and adds them as new columns."""
 
         df["model_line"] = df["raw_name"].str.extract(MOTHERBOARD_MODEL_LINE_PATTERN).iloc[:, 0]
-        df["chipset"] = df["raw_name"].str.extract(MOBO_CHIPSET_PATTERN)
-        df["socket"] = df["raw_name"].str.extract(MOBO_SOCKET_PATTERN)
+        df["chipset"] = df["raw_name"].str.extract(MOTHERBOARD_CHIPSET_PATTERN)
+        df["socket"] = df["raw_name"].str.extract(MOTHERBOARD_SOCKET_PATTERN)
         df["form_factor"] = df["raw_name"].str.extract(MOTHERBOARD_FORM_FACTOR_PATTERN)
-        df["memory_type"] = df["raw_name"].str.extract(MOBO_MEMORY_TYPE_PATTERN)
+        df["memory_type"] = df["raw_name"].str.extract(MOTHERBOARD_MEMORY_TYPE_PATTERN)
         df["wifi"] = df["raw_name"].str.contains("WiFi|Wi-Fi", case=False)
 
         df = normalize_motherboard_specs(df)
