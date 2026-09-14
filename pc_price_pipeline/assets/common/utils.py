@@ -67,8 +67,6 @@ def normalize_text(s: str | None) -> str | None:
          .strip()
     )
 
-def generate_product_id(name: str) -> str:
-    return hashlib.sha1(name.encode("utf-8")).hexdigest()
 
 def generate_product_key(spec_series: pd.Series) -> str:
     """

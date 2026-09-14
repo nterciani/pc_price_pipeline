@@ -41,33 +41,22 @@ MODEL_MAP = {
     r"ST\w+": "",
 }
 
-def normalize_storage_fields(df: pd.DataFrame) -> pd.DataFrame:
-    df["brand"] = df["brand"].apply(normalize_text)
-    df["capacity"] = df["capacity"].apply(normalize_text).str.replace(' ', '')
-
-    df["form_factor"] = df["form_factor"].apply(normalize_text)
-    df["form_factor"] = df["form_factor"].replace(FORM_FACTOR_MAP, regex=True)
-
-    df["interface"] = df["interface"].apply(normalize_text)
-    df["interface"] = df["interface"].replace(INTERFACE_MAP, regex=True)
-
-    return df
+STORAGE_MODEL_LINE_SUFFIX = r"(?i)\s+\b(?:\d+(?:\.\d+)?\s*(?:MB|GB|TB)|SSD|HDD|SOLID\s+STATE\s+DRIVE|HARD\s+(?:DISK\s+)?DRIVE|M\.2(?:\s+\d{2,4})?|NVME|NMVE|GEN\s*\d+(?:\.\d+)?|SATA|PCI(?:E|-?\s*EXPRESS)|INTERNAL|WITH\s+HEATSINK|HEATSINK|SERIES|\d{4}\s+RPM(?:\s+SAS)?)\b.*$"
 
 
 def normalize_storage_specs(df: pd.DataFrame) -> pd.DataFrame:
     df["product_brand"] = df["product_brand"].apply(normalize_text)
     df["product_brand"] = df["product_brand"].replace(BRAND_MAP, regex=True)
 
-    products_to_drop = df["product_brand"].str.contains(r"\d+(?:MG|GB|TB)?")
+    products_to_drop = df["product_brand"].str.contains(r"\d+(?:MG|GB|TB)?", na=False)
     df = df[~products_to_drop].copy()
-
-    invalid_model_line = df["model_line"].str.contains(r"(?i)(?:STORAGE|DRIVE|SSD|HDD|M\.2|2.5)", na=False, regex=True)
-    df.loc[invalid_model_line, "model_line"] = None
 
     df["capacity"] = df["capacity"].apply(normalize_text)
 
     df["model_line"] = df["model_line"].apply(normalize_text)
+    df["model_line"] = df["model_line"].str.replace(STORAGE_MODEL_LINE_SUFFIX, "", regex=True)
     df["model_line"] = df["model_line"].replace(MODEL_MAP, regex=True).str.strip()
+    df["model_line"] = df["model_line"].str.replace(r"\s+", " ", regex=True).str.strip()
 
     df["form_factor"] = df["form_factor"].apply(normalize_text)
     df["form_factor"] = df["form_factor"].replace(FORM_FACTOR_MAP, regex=True)

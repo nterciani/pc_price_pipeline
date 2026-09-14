@@ -2,7 +2,7 @@ import pandas as pd
 from dagster import asset
 from pc_price_pipeline.scrapers.newegg import scrape_newegg_category
 from pc_price_pipeline.assets.common.star_schemas import RAW_PRICES_SCHEMA
-from pc_price_pipeline.assets.common.bigquery_helpers import write_raw_to_bq
+from pc_price_pipeline.assets.common.bigquery_helpers import write_star_to_bq
 
 NEWEGG_AMD_MOTHERBOARDS = "https://www.newegg.ca/p/pl?N=100007624%20601413462%20601413455%208000&ComboBundle=true"
 NEWEGG_INTEL_MOTHERBOARDS = "https://www.newegg.ca/p/pl?N=100007626%208000%20601413471%20601458446&ComboBundle=true"
@@ -19,6 +19,6 @@ def raw_motherboards() -> pd.DataFrame:
 
     raw_df = pd.DataFrame(rows)
 
-    write_raw_to_bq(raw_df, "pc_part_prices_star.raw_prices", RAW_PRICES_SCHEMA)
+    write_star_to_bq(raw_df, "pc_part_prices_star.raw_prices", RAW_PRICES_SCHEMA)
 
     return raw_df

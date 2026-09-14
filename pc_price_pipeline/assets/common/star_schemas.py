@@ -11,6 +11,7 @@ FACT_PRICES_SCHEMA = [
     {"name": "price_date", "type": "TIMESTAMP"},
     {"name": "product_key", "type": "STRING"},
     {"name": "retailer_key", "type": "STRING"},
+    {"name": "product_category", "type": "STRING"},
     {"name": "price", "type": "FLOAT"},
     {"name": "source_url", "type": "STRING"},
 ]
@@ -18,6 +19,7 @@ FACT_PRICES_SCHEMA = [
 FACT_VECTOR_SEARCH_SCHEMA = [
     {"name": "product_key", "type": "STRING"},
     {"name": "raw_name", "type": "STRING"},
+    {"name": "product_category", "type": "STRING"},
     {"name": "match_confidence", "type": "FLOAT"},
     {"name": "match_method", "type": "STRING"},
     {"name": "is_approved", "type": "BOOLEAN"},

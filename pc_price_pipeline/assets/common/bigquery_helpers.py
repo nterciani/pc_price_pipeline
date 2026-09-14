@@ -66,6 +66,12 @@ def merge_staging_to_star_table(table: str, schema: list[dict]):
             AND target.price_date = source.price_date
             AND target.source_url = source.source_url
         """
+    elif "raw_prices" in table:
+        on_clause = """
+            target.raw_name = source.raw_name
+            AND target.scraped_at = source.scraped_at
+            AND target.source_url = source.source_url
+        """
     else:
         on_clause = "target.product_key = source.product_key"
 
@@ -75,6 +81,22 @@ def merge_staging_to_star_table(table: str, schema: list[dict]):
             SELECT * EXCEPT(dedup_rank) FROM (
                 SELECT *, ROW_NUMBER() OVER (
                         PARTITION BY product_key
+                        ORDER BY ({order_clause}) DESC
+                ) AS dedup_rank
+                FROM `pc_part_prices_star.staging`
+            ) WHERE dedup_rank = 1
+        ) AS Source
+        ON {on_clause}
+        WHEN MATCHED THEN UPDATE SET {update_clause}
+        WHEN NOT MATCHED THEN INSERT ({insert_cols}) VALUES ({insert_vals});
+    """
+
+    raw_query = f"""
+        MERGE `{table}` AS Target
+        USING (
+            SELECT * EXCEPT(dedup_rank) FROM (
+                SELECT *, ROW_NUMBER() OVER (
+                        PARTITION BY raw_name, scraped_at, source_url
                         ORDER BY ({order_clause}) DESC
                 ) AS dedup_rank
                 FROM `pc_part_prices_star.staging`
@@ -121,6 +143,8 @@ def merge_staging_to_star_table(table: str, schema: list[dict]):
         merge_query = fact_query
     elif "fact_vector_search" in table:
         merge_query = vector_query
+    elif "raw_prices" in table:
+        merge_query = raw_query
     else:
         merge_query = dim_query
 
@@ -132,18 +156,6 @@ def write_star_to_bq(df: pd.DataFrame, table: str, schema: list[dict]):
     write_df_to_staging_bq(df, schema)
     ensure_table_exists(table, schema)
     merge_staging_to_star_table(table, schema)
-
-
-def write_raw_to_bq(df: pd.DataFrame, table: str, schema: list[dict]):
-    ensure_table_exists(table, schema)
-    to_gbq(
-        df,
-        destination_table=table,
-        project_id=PROJECT_ID,
-        table_schema=schema,
-        if_exists="append",
-        credentials=CREDENTIALS
-    )
 
 
 def write_all_to_bq(transformed_parts: tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame], category: str, part_schema: list[dict]):

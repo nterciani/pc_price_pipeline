@@ -35,6 +35,10 @@ class Transformer:
         # get as much info as possible from the raw schema
         df_inter["product_brand"] = df_inter["raw_name"].str.extract(self.brand_pattern).iloc[:, 0]
         df_inter = self.get_specs(df_inter)
+
+        # set empty string entries to none
+        df_inter = df_inter.replace(r"^\s*$", None, regex=True)
+
         df_inter = self.get_name(df_inter)
 
         # products with no names arent useful
