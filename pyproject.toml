@@ -10,7 +10,7 @@ dependencies = [
     "pandas-gbq",
     "requests",
     "beautifulsoup4",
-    "sentence_transformers",
+    "sentence-transformers",
 ]
 
 [project.optional-dependencies]

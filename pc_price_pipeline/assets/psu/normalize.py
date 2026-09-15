@@ -32,7 +32,7 @@ def normalize_psu_specs(df: pd.DataFrame) -> pd.DataFrame:
     df["model_line"] = df["model_line"].str.replace(r"\s+", " ", regex=True).str.strip()
 
     df["efficiency_rating"] = df["efficiency_rating"].apply(normalize_text)
-    df["efficiency_rating"] = df["efficiency_rating"].replace(EFFICIENCY_MAP, regex=True).str.replace(" CERTIFIED", "")
+    df["efficiency_rating"] = df["efficiency_rating"].astype(str).replace(EFFICIENCY_MAP, regex=True).str.replace(" CERTIFIED", "")
 
     df["wattage"] = df["wattage"].apply(normalize_text).str.replace(" ", "")
     df["wattage"] = df["wattage"].replace(WATTAGE_MAP, regex=True)

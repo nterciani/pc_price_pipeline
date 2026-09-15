@@ -59,7 +59,7 @@ def normalize_storage_specs(df: pd.DataFrame) -> pd.DataFrame:
     df["model_line"] = df["model_line"].str.replace(r"\s+", " ", regex=True).str.strip()
 
     df["form_factor"] = df["form_factor"].apply(normalize_text)
-    df["form_factor"] = df["form_factor"].replace(FORM_FACTOR_MAP, regex=True)
+    df["form_factor"] = df["form_factor"].astype(str).replace(FORM_FACTOR_MAP, regex=True)
 
     df["interface"] = df["interface"].apply(normalize_text)
     df["interface"] = df["interface"].replace(INTERFACE_MAP, regex=True)
