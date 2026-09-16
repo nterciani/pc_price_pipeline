@@ -1,4 +1,5 @@
 import pandas as pd
+from functools import lru_cache
 from google.cloud import bigquery
 from google.api_core.exceptions import NotFound
 from sentence_transformers import SentenceTransformer
@@ -15,14 +16,20 @@ TEMP_VECTOR_SCHEMA = [
 ]
 
 
+@lru_cache(maxsize=1)
+def get_embedding_model() -> SentenceTransformer:
+    """ Returns a cached instance of the embedding model. """
+    return SentenceTransformer(
+        EMBEDDING_MODEL_NAME,
+        trust_remote_code=True
+    )
+
+
 def generate_product_embeddings(df: pd.DataFrame) -> pd.DataFrame:
     """ Generates embeddings based on the dataframe's product_name and inserts
     them into a product_embedding column.
     """
-    model = SentenceTransformer(
-        EMBEDDING_MODEL_NAME,
-        trust_remote_code=True
-    )
+    model = get_embedding_model()
 
     raw_names = df["product_name"].fillna("").tolist()
 
@@ -30,7 +37,8 @@ def generate_product_embeddings(df: pd.DataFrame) -> pd.DataFrame:
         raw_names,
         task="text-matching",
         prompt_name="text-matching",
-        normalize_embeddings=True
+        normalize_embeddings=True,
+        batch_size=32,
     )
 
     df["product_embedding"] = [vec.tolist() for vec in embeddings_matrix]
@@ -93,8 +101,8 @@ def match_intermediate_to_existing_products(df_intermediate: pd.DataFrame) -> pd
     df_intermediate["source_product_key"] = df_intermediate["product_key"]
 
     df_intermediate["candidate_product_key"] = None
-    df_intermediate["match_confidence"] = None
-    df_intermediate["match_method"] = None
+    df_intermediate["match_confidence"] = 1.0
+    df_intermediate["match_method"] = "exact_match"
     df_intermediate["is_approved"] = True
 
     # check if dim_products table exists
