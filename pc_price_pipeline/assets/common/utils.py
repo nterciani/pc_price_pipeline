@@ -74,7 +74,7 @@ def generate_product_key(spec_series: pd.Series) -> str:
     The spec_series should contain the relevant columns for the product's specs.
     """
     # Concatenate the relevant specs into a single string
-    specs_string = "|".join(spec_series.fillna("").astype(str).values.flatten())
+    specs_string = "|".join(spec_series.fillna("").astype(str).tolist())
     
     # Generate a SHA-1 hash of the concatenated specs string
     product_key = hashlib.sha1(specs_string.encode("utf-8")).hexdigest()
