@@ -56,3 +56,6 @@ tmp/
 # Personal
 Roadmap.md
 scripts/
+
+# Local Power BI report
+pc_price_pipeline/analytics/*.pbix
