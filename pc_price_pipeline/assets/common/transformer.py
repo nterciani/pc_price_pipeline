@@ -18,6 +18,9 @@ class Transformer:
         """Must be implemented per class to extract the product's specs.""" 
         raise NotImplementedError("Subclasses must implement get_specs()")
 
+    def get_product_key_columns(self, df: pd.DataFrame) -> list[str]:
+        return [col["name"] for col in self.specs_schema if col["name"] in df.columns]
+
     def clean_to_intermediate(self, df_clean: pd.DataFrame) -> pd.DataFrame:
         """
         Transforms clean data in the form of the raw prices schema into a 
@@ -45,7 +48,7 @@ class Transformer:
         df_inter = df_inter[df_inter["product_name"].notnull()]
 
         # make product key from specs
-        key_columns = [col["name"] for col in self.specs_schema if col["name"] in df_inter.columns]
+        key_columns = self.get_product_key_columns(df_inter)
         df_inter["product_key"] = df_inter[key_columns].drop("needs_review", axis=1).apply(generate_product_key, axis=1)
 
         return df_inter

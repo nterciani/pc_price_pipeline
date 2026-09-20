@@ -24,3 +24,14 @@ def test_cpu_transformer_marks_incomplete_specs_for_review(raw_listing):
     result = CpuTransformer(raw, CPU_BRAND_PATTERN, DIM_CPU_SPECS).clean_to_intermediate(raw)
 
     assert bool(result.iloc[0]["needs_review"])
+
+
+def test_cpu_model_is_part_of_product_key(raw_listing):
+    first_raw = raw_listing("AMD Ryzen 5 4500 6-Core 3.6 GHz Socket AM4 65W Processor", "CPU")
+    second_raw = raw_listing("AMD Ryzen 5 5500 6-Core 3.6 GHz Socket AM4 65W Processor", "CPU")
+
+    first = CpuTransformer(first_raw, CPU_BRAND_PATTERN, DIM_CPU_SPECS).clean_to_intermediate(first_raw)
+    second = CpuTransformer(second_raw, CPU_BRAND_PATTERN, DIM_CPU_SPECS).clean_to_intermediate(second_raw)
+
+    assert first.iloc[0]["product_name"] != second.iloc[0]["product_name"]
+    assert first.iloc[0]["product_key"] != second.iloc[0]["product_key"]

@@ -38,7 +38,7 @@ DIM_RETAILERS_SCHEMA = [
     {"name": "retailer_key", "type": "STRING"}, # ex: bestbuy_us, bestbuy_ca
     {"name": "retailer_name", "type": "STRING"}, # ex: Best Buy
     {"name": "retailer_domain", "type": "STRING"}, # ex: bestbuy.com, bestbuy.ca
-    {"name": "retailer_country", "type": "STRING"}, # ex: US, CA
+    {"name": "retailer_country", "type": "STRING"}, # ex: UNITED STATES, CANADA
 ]
 
 DIM_CPU_SPECS = [

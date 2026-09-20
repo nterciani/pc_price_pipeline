@@ -27,3 +27,6 @@ class CpuTransformer(Transformer):
         df["needs_review"] = df[["socket", "core_count", "core_clock", "thread_count", "integrated_graphics", "tdp"]].isnull().any(axis=1)
 
         return df
+
+    def get_product_key_columns(self, df: pd.DataFrame) -> list[str]:
+        return ["product_name", *super().get_product_key_columns(df)]

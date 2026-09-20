@@ -38,7 +38,6 @@ def generate_product_embeddings(df: pd.DataFrame) -> pd.DataFrame:
         task="text-matching",
         prompt_name="text-matching",
         normalize_embeddings=True,
-        batch_size=32,
     )
 
     df["product_embedding"] = [vec.tolist() for vec in embeddings_matrix]
