@@ -52,9 +52,11 @@ def perform_vector_search(df_intermediate: pd.DataFrame) -> pd.DataFrame | None:
     """
     client = bigquery.Client()
 
-    client.delete_table("pc_part_prices_star.staging", not_found_ok=True)
+    staging_table_name = "fact_vector_search"
 
-    write_df_to_staging_bq(df_intermediate[["match_id", "product_name", "scraped_at", "product_embedding"]], TEMP_VECTOR_SCHEMA)
+    client.delete_table(f"pc_part_prices_star.staging_{staging_table_name}", not_found_ok=True)
+
+    write_df_to_staging_bq(df_intermediate[["match_id", "product_name", "scraped_at", "product_embedding"]], TEMP_VECTOR_SCHEMA, staging_table_name)
 
     query = f"""
         SELECT
@@ -70,7 +72,7 @@ def perform_vector_search(df_intermediate: pd.DataFrame) -> pd.DataFrame | None:
         FROM VECTOR_SEARCH(
             TABLE `pc_part_prices_star.dim_products`,
             'product_embedding',
-            TABLE `pc_part_prices_star.staging`,
+            TABLE `pc_part_prices_star.staging_{staging_table_name}`,
             'product_embedding',
             top_k => 1,
             distance_type => 'COSINE'
@@ -80,7 +82,7 @@ def perform_vector_search(df_intermediate: pd.DataFrame) -> pd.DataFrame | None:
     query_job = client.query(query)
     new_df = query_job.to_dataframe()
 
-    client.delete_table("pc_part_prices_star.staging", not_found_ok=True)
+    client.delete_table(f"pc_part_prices_star.staging_{staging_table_name}", not_found_ok=True)
 
     if new_df.empty:
         return None

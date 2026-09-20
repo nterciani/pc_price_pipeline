@@ -22,7 +22,6 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -e .
-          python -m playwright install --with-deps chromium
 
       - name: Authenticate to GCP
         run: echo '${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}' > key.json

@@ -2,82 +2,33 @@ import time
 import random
 import pandas as pd
 from bs4 import BeautifulSoup
+from curl_cffi import requests
 from bs4 import PageElement, Tag, NavigableString
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
-PLAYWRIGHT_TIMEOUT = 45_000
-PLAYWRIGHT_USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) "
-    "Chrome/131.0.0.0 Safari/537.36"
-)
-
-MAX_ATTEMPTS = 3
+HEADERS = {
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+}
 
 
 def _get_page(url: str) -> str:
-    """Fetch a Newegg page with Chromium."""
+    """Fetch a Newegg page with curl."""
     try:
-        from playwright.sync_api import sync_playwright
-    except ImportError as error:
-        raise RuntimeError(
-            "Playwright is required for the Newegg scraper."
-        ) from error
-
-    last_error = None
-
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=True)
-        context = browser.new_context(
-            user_agent=PLAYWRIGHT_USER_AGENT,
-            locale="en-CA",
-            viewport={"width": 1366, "height": 900},
+        response = requests.get(
+            url, 
+            headers=HEADERS, 
+            impersonate="chrome124",
+            timeout=15
         )
-        page = context.new_page()
 
-        try:
-            for attempt in range(1, MAX_ATTEMPTS + 1):
-                try:
-                    response = page.goto(
-                        url,
-                        wait_until="domcontentloaded",
-                        timeout=PLAYWRIGHT_TIMEOUT,
-                    )
+        if response.status_code == 200:
+            return response.text
+        else:
+            raise RuntimeError(f"Failed to fetch page {url}: Status code {response.status_code}")
 
-                    if response and response.status >= 400:
-                        raise RuntimeError(
-                            f"Newegg returned HTTP {response.status}"
-                        )
-
-                    page.wait_for_load_state(
-                        "networkidle",
-                        timeout=15_000,
-                    )
-
-                    page.wait_for_selector(
-                        ".item-cell, .item-container",
-                        timeout=PLAYWRIGHT_TIMEOUT,
-                    )
-
-                    return page.content()
-
-                except (PlaywrightTimeoutError, RuntimeError) as error:
-                            last_error = error
-
-                            # Preserve evidence of bot pages or markup changes.
-                            page.screenshot(
-                                path=f"/tmp/newegg-{attempt}.png",
-                                full_page=True,
-                            )
-
-                            if attempt < MAX_ATTEMPTS:
-                                time.sleep(2 ** attempt)
-
-            raise RuntimeError(
-                f"Unable to load Newegg page after {MAX_ATTEMPTS} attempts: {url}"
-            ) from last_error
-        finally:
-            browser.close()
+    except requests.RequestException as e:
+        raise RuntimeError(f"Failed to fetch page {url}: {e}")
 
 
 def get_newegg_pages(url: str) -> int:

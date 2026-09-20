@@ -13,7 +13,7 @@ source is Newegg Canada.
 Newegg Canada
       |
       v
-Playwright scraper
+   scraper
       |
       v
 Dagster assets
@@ -32,8 +32,6 @@ BigQuery star schema
 ### Extraction
 
 - Scrapes CPUs, GPUs, motherboards, memory, PSUs, and storage.
-- Uses Chromium through Playwright because Newegg challenges plain HTTP clients.
-- Uses a fresh headless Chromium browser for each fetched page.
 - Records product name, price, retailer, category, timestamp, and source URL.
 
 ### Transformation
@@ -68,8 +66,7 @@ debugging and transformation boundaries.
 
 - Dagster assets are grouped by component category.
 - `daily_etl_job` selects all assets.
-- GitHub Actions runs the ingest job daily at 06:07 UTC and supports manual runs.
-- CI installs both the Playwright Python package and the Chromium runtime.
+- GitHub Actions runs the ingest job daily and supports manual runs.
 
 ## Data Flow
 
@@ -80,22 +77,3 @@ debugging and transformation boundaries.
 5. Match products against existing BigQuery products.
 6. Split records into product, specification, price, and matching tables.
 7. Append the current price snapshot to BigQuery.
-
-## Setup
-
-Requirements: Python 3.10-3.14, Google Cloud credentials with BigQuery access,
-and a Playwright-compatible Chromium installation.
-
-```bash
-pip install -e .
-python -m playwright install chromium
-```
-
-On Ubuntu or GitHub Actions, install Chromium's system dependencies too:
-
-```bash
-python -m playwright install --with-deps chromium
-```
-
-Set `GOOGLE_APPLICATION_CREDENTIALS` to the service-account JSON file before
-running the pipeline.

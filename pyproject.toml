@@ -9,7 +9,7 @@ dependencies = [
     "pandas>=2.2,<3.0",
     "pandas-gbq",
     "beautifulsoup4",
-    "playwright",
+    "curl_cffi",
     "sentence-transformers",
 ]
 
