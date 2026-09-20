@@ -3,6 +3,7 @@ import random
 import pandas as pd
 from bs4 import BeautifulSoup
 from bs4 import PageElement, Tag, NavigableString
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 PLAYWRIGHT_TIMEOUT = 45_000
 PLAYWRIGHT_USER_AGENT = (
@@ -11,6 +12,8 @@ PLAYWRIGHT_USER_AGENT = (
     "Chrome/131.0.0.0 Safari/537.36"
 )
 
+MAX_ATTEMPTS = 3
+
 
 def _get_page(url: str) -> str:
     """Fetch a Newegg page with Chromium."""
@@ -18,29 +21,63 @@ def _get_page(url: str) -> str:
         from playwright.sync_api import sync_playwright
     except ImportError as error:
         raise RuntimeError(
-            "Playwright is required for the Newegg scraper. Install it with "
-            "'pip install playwright && playwright install chromium'."
+            "Playwright is required for the Newegg scraper."
         ) from error
 
-    try:
-        with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(headless=True)
-            try:
-                page = browser.new_page(
-                    user_agent=PLAYWRIGHT_USER_AGENT,
-                    locale="en-US",
-                )
-                page.goto(
-                    url,
-                    wait_until="domcontentloaded",
-                    timeout=PLAYWRIGHT_TIMEOUT,
-                )
-                page.wait_for_selector(".item-cell", timeout=PLAYWRIGHT_TIMEOUT)
-                return page.content()
-            finally:
-                browser.close()
-    except Exception as error:
-        raise RuntimeError(f"Unable to load Newegg page: {url}") from error
+    last_error = None
+
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(headless=True)
+        context = browser.new_context(
+            user_agent=PLAYWRIGHT_USER_AGENT,
+            locale="en-CA",
+            viewport={"width": 1366, "height": 900},
+        )
+        page = context.new_page()
+
+        try:
+            for attempt in range(1, MAX_ATTEMPTS + 1):
+                try:
+                    response = page.goto(
+                        url,
+                        wait_until="domcontentloaded",
+                        timeout=PLAYWRIGHT_TIMEOUT,
+                    )
+
+                    if response and response.status >= 400:
+                        raise RuntimeError(
+                            f"Newegg returned HTTP {response.status}"
+                        )
+
+                    page.wait_for_load_state(
+                        "networkidle",
+                        timeout=15_000,
+                    )
+
+                    page.wait_for_selector(
+                        ".item-cell, .item-container",
+                        timeout=PLAYWRIGHT_TIMEOUT,
+                    )
+
+                    return page.content()
+
+                except (PlaywrightTimeoutError, RuntimeError) as error:
+                            last_error = error
+
+                            # Preserve evidence of bot pages or markup changes.
+                            page.screenshot(
+                                path=f"/tmp/newegg-{attempt}.png",
+                                full_page=True,
+                            )
+
+                            if attempt < MAX_ATTEMPTS:
+                                time.sleep(2 ** attempt)
+
+            raise RuntimeError(
+                f"Unable to load Newegg page after {MAX_ATTEMPTS} attempts: {url}"
+            ) from last_error
+        finally:
+            browser.close()
 
 
 def get_newegg_pages(url: str) -> int:
@@ -82,7 +119,7 @@ def scrape_newegg_category(category: str, url: str) -> list[dict]:
             _get_page(f"{url}&page={page_number}"),
             "html.parser",
         )
-        items = soup.select(".item-cell")
+        items = soup.select(".item-cell, .item-container")
         if not items:
             break
 

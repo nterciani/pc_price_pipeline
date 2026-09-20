@@ -17,8 +17,8 @@ def read_from_gbq_data_set(query: str) -> pd.DataFrame:
     return read_gbq(query, project_id=PROJECT_ID, credentials=CREDENTIALS)
 
 
-def write_df_to_staging_bq(df: pd.DataFrame, schema: list[dict]):
-    table = "pc_part_prices_star.staging"
+def write_df_to_staging_bq(df: pd.DataFrame, schema: list[dict], staging_table_name: str):
+    table = f"pc_part_prices_star.staging_{staging_table_name}"
 
     if df.empty:
         raise ValueError(f"{table} is empty — aborting BigQuery write")
@@ -43,7 +43,8 @@ def ensure_table_exists(table_id: str, schema: list[dict]):
         client.create_table(table)
 
 
-def merge_staging_to_star_table(table: str, schema: list[dict]):
+
+def merge_staging_to_star_table(table: str, schema: list[dict], staging_table_name: str):
     client = bigquery.Client()
 
     cols = [col["name"] for col in schema]
@@ -83,7 +84,7 @@ def merge_staging_to_star_table(table: str, schema: list[dict]):
                         PARTITION BY product_key
                         ORDER BY ({order_clause}) DESC
                 ) AS dedup_rank
-                FROM `pc_part_prices_star.staging`
+                FROM `pc_part_prices_star.staging_{staging_table_name}`
             ) WHERE dedup_rank = 1
         ) AS Source
         ON {on_clause}
@@ -99,7 +100,7 @@ def merge_staging_to_star_table(table: str, schema: list[dict]):
                         PARTITION BY raw_name, scraped_at, source_url
                         ORDER BY ({order_clause}) DESC
                 ) AS dedup_rank
-                FROM `pc_part_prices_star.staging`
+                FROM `pc_part_prices_star.staging_{staging_table_name}`
             ) WHERE dedup_rank = 1
         ) AS Source
         ON {on_clause}
@@ -115,7 +116,7 @@ def merge_staging_to_star_table(table: str, schema: list[dict]):
                         PARTITION BY product_key, retailer_key, price_date, source_url
                         ORDER BY ({order_clause}) DESC
                 ) AS dedup_rank
-                FROM `pc_part_prices_star.staging`
+                FROM `pc_part_prices_star.staging_{staging_table_name}`
             ) WHERE dedup_rank = 1
         ) AS Source
         ON {on_clause}
@@ -131,7 +132,7 @@ def merge_staging_to_star_table(table: str, schema: list[dict]):
                         PARTITION BY product_key, raw_name, scraped_at
                         ORDER BY ({order_clause}) DESC
                 ) AS dedup_rank
-                FROM `pc_part_prices_star.staging`
+                FROM `pc_part_prices_star.staging_{staging_table_name}`
             ) WHERE dedup_rank = 1
         ) AS Source
         ON {on_clause}
@@ -149,13 +150,15 @@ def merge_staging_to_star_table(table: str, schema: list[dict]):
         merge_query = dim_query
 
     client.query(merge_query).result()
-    client.delete_table("pc_part_prices_star.staging", not_found_ok=True)
+    client.delete_table(f"pc_part_prices_star.staging_{staging_table_name}", not_found_ok=True)
 
 
 def write_star_to_bq(df: pd.DataFrame, table: str, schema: list[dict]):
-    write_df_to_staging_bq(df, schema)
+    staging_table_name = table.split(".")[1]
+
+    write_df_to_staging_bq(df, schema, staging_table_name)
     ensure_table_exists(table, schema)
-    merge_staging_to_star_table(table, schema)
+    merge_staging_to_star_table(table, schema, staging_table_name)
 
 
 def write_all_to_bq(transformed_parts: tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame], category: str, part_schema: list[dict]):
