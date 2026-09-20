@@ -6,9 +6,8 @@ readme = "README.md"
 requires-python = ">=3.10,<3.15"
 dependencies = [
     "dagster",
-    "pandas",
+    "pandas>=2.2,<3.0",
     "pandas-gbq",
-    "requests",
     "beautifulsoup4",
     "playwright",
     "sentence-transformers",
