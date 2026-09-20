@@ -1,57 +1,101 @@
-# PC Component Price Data Pipeline
+# PC Market Viewer
 
-Educational project that implements an ETL data pipeline, orchestrated with Dagster and stored in Google BigQuery. 
+An educational data engineering project that collects PC component prices,
+normalizes product metadata, matches products over time, and stores the results
+in BigQuery for historical analysis.
 
-The pipeline scrapes PC component data & pricing from online retailers, cleans and enriches
-product metadata, and stores historical price snapshots in Google BigQuery for long-term price
-analysis. 
+The pipeline currently runs daily through Dagster and GitHub Actions. Its main
+source is Newegg Canada.
 
-The pipeline is orchestrated with Dagster, implemented in Python, and designed to support multiple 
-retailers, component categories, and daily price tracking.
+## Current Architecture
 
-## Features
-- Scrapes PC component listings (CPUs, GPUs, motherboards, memory, storage, PSUs)
-- Cleans and normalizes raw listing data using Pandas
-- Enriches products by extracting structured specifications from listing titles
-- Assigns stable `product_id`s to enable price tracking over time
-- Stores historical price snapshots in Google BigQuery
-- Modular asset-based design using Dagster
-- Unit-tested transformation logic with pytest
+```text
+Newegg Canada
+      |
+      v
+Playwright scraper
+      |
+      v
+Dagster assets
+      |
+      +--> raw prices
+      +--> cleaned prices
+      +--> category-specific product attributes
+      +--> product embeddings and vector matching
+      |
+      v
+BigQuery star schema
+```
 
-## Pipeline Overview
-1. **Extract**
-   * Scrape raw product listings and prices from retailer category pages.
-2. **Clean**
-   * Normalize fields (price, store, category, timestamps) and remove invalid records.
-3. **Enrich**
-   * Parse structured attributes (e.g. brand, socket, chipset, memory type) from raw product names and generate stable product identifiers.
-4. **Load**
-   * Write enriched price snapshots to BigQuery tables partitioned by component category.
+## Implemented Features
 
-## Data Model
-Each record in BigQuery represents a price snapshot of a specific product at a specific point in time.
-- `product_id` is derived from a normalized product family and remains stable across scrapes
-- Multiple records per product are intentionally stored to support time-series price analysis
-- Identical products scraped on different days produce multiple rows
+### Extraction
 
-This design enables:
-- Price trend analysis
-- Deal detection
-- Cross-retailer comparisons
+- Scrapes CPUs, GPUs, motherboards, memory, PSUs, and storage.
+- Uses Chromium through Playwright because Newegg challenges plain HTTP clients.
+- Uses a fresh headless Chromium browser for each fetched page.
+- Records product name, price, retailer, category, timestamp, and source URL.
 
-## Access & Authentication
+### Transformation
 
-This pipeline writes to a private Google BigQuery dataset and is not intended
-to be executed by arbitrary users.
+- Cleans prices, names, timestamps, URLs, and duplicate observations.
+- Extracts category-specific attributes from product titles.
+- Supports CPU, GPU, memory, motherboard, PSU, and storage schemas.
+- Generates stable product keys from normalized product attributes.
+- Flags records that need review when metadata extraction is incomplete.
 
-Authentication is handled via a Google Cloud service account with restricted
-permissions. Credentials are intentionally not included in this repository.
+### Warehouse Model
 
-Future plans include exposing read-only access via a public dashboard or
-query interface without granting write access to the underlying warehouse.
+The pipeline uses a shared star-schema model:
 
-## Testing & Reliability
+- `dim_products`: product name, brand, category, and embedding.
+- `dim_*_specs`: category-specific product attributes.
+- `dim_retailers`: retailer name, domain, country.
+- `fact_prices`: historical price observations by product and retailer.
+- `fact_vector_search`: product matching confidence, method, and approval state.
 
-Core transformation and enrichment logic is unit-tested using pytest.
-Tests focus on deterministic product ID generation, attribute extraction,
-schema alignment, and basic data quality constraints.
+The project also retains raw and intermediate data during the asset pipeline for
+debugging and transformation boundaries.
+
+### Product Matching
+
+- Loads the embedding model once per Python process with `lru_cache`.
+- Generates normalized product embeddings.
+- Uses BigQuery vector search to match incoming products to existing products.
+- Preserves match confidence and approval metadata for review.
+
+### Orchestration and Automation
+
+- Dagster assets are grouped by component category.
+- `daily_etl_job` selects all assets.
+- GitHub Actions runs the ingest job daily at 06:07 UTC and supports manual runs.
+- CI installs both the Playwright Python package and the Chromium runtime.
+
+## Data Flow
+
+1. Scrape raw Newegg listings.
+2. Clean and validate common price fields.
+3. Extract product names and category specifications.
+4. Generate stable product keys and embeddings.
+5. Match products against existing BigQuery products.
+6. Split records into product, specification, price, and matching tables.
+7. Append the current price snapshot to BigQuery.
+
+## Setup
+
+Requirements: Python 3.10-3.14, Google Cloud credentials with BigQuery access,
+and a Playwright-compatible Chromium installation.
+
+```bash
+pip install -e .
+python -m playwright install chromium
+```
+
+On Ubuntu or GitHub Actions, install Chromium's system dependencies too:
+
+```bash
+python -m playwright install --with-deps chromium
+```
+
+Set `GOOGLE_APPLICATION_CREDENTIALS` to the service-account JSON file before
+running the pipeline.
