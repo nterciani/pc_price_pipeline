@@ -18,7 +18,7 @@ def _get_page(url: str) -> str:
         response = requests.get(
             url, 
             headers=HEADERS, 
-            impersonate="chrome124",
+            impersonate="chrome",
             timeout=15
         )
 
@@ -27,7 +27,7 @@ def _get_page(url: str) -> str:
         else:
             raise RuntimeError(f"Failed to fetch page {url}: Status code {response.status_code}")
 
-    except requests.RequestException as e:
+    except Exception as e:
         raise RuntimeError(f"Failed to fetch page {url}: {e}")
 
 
