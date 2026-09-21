@@ -24,7 +24,7 @@ jobs:
           pip install -e .
 
       - name: Authenticate to GCP
-        shell: pwsh
+        shell: powershell
         env:
           GCP_SERVICE_ACCOUNT_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
         run: |
