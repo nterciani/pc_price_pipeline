@@ -24,7 +24,26 @@ jobs:
           pip install -e .
 
       - name: Authenticate to GCP
-        run: echo '${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}' > key.json
+        shell: pwsh
+        env:
+          GCP_SERVICE_ACCOUNT_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+        run: |
+          $keyPath = Join-Path $env:GITHUB_WORKSPACE "key.json"
+
+          if ([string]::IsNullOrWhiteSpace($env:GCP_SERVICE_ACCOUNT_KEY)) {
+            throw "GCP_SERVICE_ACCOUNT_KEY is empty"
+          }
+
+          $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+
+          [System.IO.File]::WriteAllText(
+            $keyPath,
+            $env:GCP_SERVICE_ACCOUNT_KEY,
+            $utf8NoBom
+          )
+
+          Get-Content -Raw $keyPath | ConvertFrom-Json | Out-Null
+          Write-Host "GCP credentials JSON is valid"
 
       - name: Run Dagster ETL
         run: |
