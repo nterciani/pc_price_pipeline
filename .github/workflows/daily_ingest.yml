@@ -28,6 +28,4 @@ jobs:
 
       - name: Run Dagster ETL
         run: |
-          dagster job execute \
-            -m pc_price_pipeline.definitions \
-            -j daily_etl_job
+          dagster job execute -m pc_price_pipeline.definitions -j daily_etl_job
