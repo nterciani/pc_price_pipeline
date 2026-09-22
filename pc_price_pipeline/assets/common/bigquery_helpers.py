@@ -1,4 +1,5 @@
 import os
+import uuid
 import google.auth
 import pandas as pd
 from google.cloud import bigquery
@@ -8,6 +9,11 @@ from pc_price_pipeline.assets.common.star_schemas import *
 
 PROJECT_ID = os.getenv("GCP_PROJECT_ID", "pc-price-pipeline")
 CREDENTIALS, _ = google.auth.default()
+
+
+def get_staging_table_name(table_name: str) -> str:
+    """Return a staging name unique to this process and invocation."""
+    return f"{table_name}_{os.getpid()}_{uuid.uuid4().hex}"
 
 
 def read_from_gbq_data_set(query: str) -> pd.DataFrame:
@@ -154,7 +160,7 @@ def merge_staging_to_star_table(table: str, schema: list[dict], staging_table_na
 
 
 def write_star_to_bq(df: pd.DataFrame, table: str, schema: list[dict]):
-    staging_table_name = table.split(".")[1]
+    staging_table_name = get_staging_table_name(table.split(".")[1])
 
     write_df_to_staging_bq(df, schema, staging_table_name)
     ensure_table_exists(table, schema)

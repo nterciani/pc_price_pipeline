@@ -1,4 +1,6 @@
+import os
 import pandas as pd
+from uuid import uuid4
 from functools import lru_cache
 from google.cloud import bigquery
 from google.api_core.exceptions import NotFound
@@ -52,37 +54,39 @@ def perform_vector_search(df_intermediate: pd.DataFrame) -> pd.DataFrame | None:
     """
     client = bigquery.Client()
 
-    staging_table_name = "fact_vector_search"
+    staging_table_name = f"fact_vector_search_{os.getpid()}_{uuid4().hex}"
 
-    client.delete_table(f"pc_part_prices_star.staging_{staging_table_name}", not_found_ok=True)
-
-    write_df_to_staging_bq(df_intermediate[["match_id", "product_name", "scraped_at", "product_embedding"]], TEMP_VECTOR_SCHEMA, staging_table_name)
-
-    query = f"""
-        SELECT
-            query.match_id,
-            EXTRACT(DATE FROM query.scraped_at) as match_date,
-            query.product_name AS incoming_product_name,
-            base.product_name AS database_product_name,
-            query.scraped_at,
-            false AS is_approved,
-            base.product_key,
-            distance AS match_confidence,
-            'vector_search' AS match_method
-        FROM VECTOR_SEARCH(
-            TABLE `pc_part_prices_star.dim_products`,
-            'product_embedding',
-            TABLE `pc_part_prices_star.staging_{staging_table_name}`,
-            'product_embedding',
-            top_k => 1,
-            distance_type => 'COSINE'
+    try:
+        write_df_to_staging_bq(
+            df_intermediate[["match_id", "product_name", "scraped_at", "product_embedding"]],
+            TEMP_VECTOR_SCHEMA,
+            staging_table_name,
         )
-    """
+        query = f"""
+            SELECT
+                query.match_id,
+                EXTRACT(DATE FROM query.scraped_at) as match_date,
+                query.product_name AS incoming_product_name,
+                base.product_name AS database_product_name,
+                query.scraped_at,
+                false AS is_approved,
+                base.product_key,
+                distance AS match_confidence,
+                'vector_search' AS match_method
+            FROM VECTOR_SEARCH(
+                TABLE `pc_part_prices_star.dim_products`,
+                'product_embedding',
+                TABLE `pc_part_prices_star.staging_{staging_table_name}`,
+                'product_embedding',
+                top_k => 1,
+                distance_type => 'COSINE'
+            )
+        """
 
-    query_job = client.query(query)
-    new_df = query_job.to_dataframe()
-
-    client.delete_table(f"pc_part_prices_star.staging_{staging_table_name}", not_found_ok=True)
+        query_job = client.query(query)
+        new_df = query_job.to_dataframe()
+    finally:
+        client.delete_table(f"pc_part_prices_star.staging_{staging_table_name}", not_found_ok=True)
 
     if new_df.empty:
         return None
